@@ -1,0 +1,126 @@
+{{template "base" .}}
+
+{{define "title"}}
+  All subscriptions
+{{end}}
+
+{{define "content"}}
+  <h2 class="mt-5">All Subscriptions</h2>
+  <hr>  
+  <table id="subscriptions-table" class="table table-striped">
+    <thead>
+      <tr>
+        <th>Transaction</th>
+        <th>Customer</th>
+        <th>Product</th>
+        <th>Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+    </tbody>
+  </table>
+
+  <nav>
+    <ul id="paginator" class="pagination">
+    </ul>
+  </nav>
+{{end}}
+
+{{define "js"}}
+<script>
+  let currentPage = 1;
+  let pageSize = 3;
+  
+  function paginator(pages, curPage) {
+    let p = document.getElementById("paginator");
+  
+    let html = `<li class="page-item"><a class="page-link pager" href="#" data-page="${curPage-1}">&lt;</a></li>`;
+    for (var i = 0; i <= pages; i++) {
+      html += `<li class="page-item"><a class="page-link pager" href="#" data-page="${i + 1}">${i + 1}</a></li>`;
+    }
+    html += `<li class="page-item"><a class="page-link pager" href="#" data-page="${curPage + 1}">&gt;</a></li>`;
+    p.innerHTML = html;
+  
+    let pageBtns = document.getElementsByClassName("pager");
+    for (var j = 0; j < pageBtns.length; j++) {
+      pageBtns[j].addEventListener("click", function(event) {
+        let desiredPage = event.target.getAttribute("data-page");
+        console.log("clicked, and data-page is", desiredPage);
+        if ((desiredPage > 0) && (desiredPage <= pages + 1)) {
+          console.log("would go to page", desiredPage);
+          updateTable(pageSize, desiredPage);
+        }
+      })
+    }
+  }
+  
+  function updateTable(ps, cp) {
+    let token = localStorage.getItem("token");
+    let tbody = document.getElementById("subscriptions-table").getElementsByTagName("tbody")[0];
+
+    // Clear previous data before adding new data
+    tbody.innerHTML = "";
+
+    let body = {
+      page_size: parseInt(ps, 10),
+      page: parseInt(cp, 10),
+    }
+    const requestOptions = {
+      method: 'post',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
+      },
+      body: JSON.stringify(body)
+    }
+
+    fetch("{{.API}}/api/admin/all-subscriptions", requestOptions)
+    .then(response => response.json())
+    .then(function(data) {
+      console.log(data);
+
+      if (data.orders) {
+        data.orders.forEach(function(i) {
+          let newRow = tbody.insertRow();
+          let newCell = newRow.insertCell();
+
+          newCell.innerHTML = `<a href="/admin/subscriptions/${i.id}">Order ${i.id}</a>`;
+          
+          newCell = newRow.insertCell();
+          let item = document.createTextNode(i.customer.last_name + ", " + i.customer.first_name);
+          newCell.appendChild(item);
+          
+          newCell = newRow.insertCell();
+          item = document.createTextNode(i.widget.name);
+          newCell.appendChild(item);
+          
+          let cur = formatCurrency(i.transaction.amount);
+          newCell = newRow.insertCell();
+          item = document.createTextNode(cur);
+          newCell.appendChild(item);
+        })
+        paginator(data.last_page, data.current_page);
+      } else {
+        let newRow = tbody.insertRow();
+        let newCell = newRow.insertCell();
+        newCell.setAttribute("colspan", "4");
+        newCell.innerHTML = "No data available";
+      }
+    })
+  }
+
+  document.addEventListener("DOMContentLoaded", function() {
+    updateTable(pageSize, currentPage)
+  })
+
+  function formatCurrency(amount) {
+    let c = parseFloat(amount/100);
+    return c.toLocaleString("en-CA", {
+      style: "currency",
+      currency: "CAD",
+    })
+  }
+
+</script>
+{{end}}
